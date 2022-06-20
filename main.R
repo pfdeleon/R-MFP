@@ -8,6 +8,17 @@ library(readxl)
 
 rm(list = ls())
 
+#setwd("/Users/pfdeleon/OneDrive - LABORATORIOS PISA S.A. DE C.V/Ciencia De Datos/Proyectos/11 Mercado Farmaceutico Privado (MFP)/")
+
+#carpeta_exportados <- "//pluton/PRIVADO/ADM/InteligenciacomercialVM/Tablas Power BI/11 Mercado Farmaceutico Privado (MFP)/Productivo"
+
+#write.csv(laboratorios,carpeta_exportados %>% paste0("Productivo/Laboratorios.csv"), fileEncoding = "UTF-8", row.names =  FALSE)
+
+
+# Enlaces -----------------------------------------------------------------
+
+carpeta_exportados <- "c:/Users/pfdeleon/Desktop/Temporal/"
+
 carpeta_mfp <-
   getwd() %>%
   dirname() %>%
@@ -67,9 +78,11 @@ productos <-
 productos[is.na(`Corporacion Homologado`), .(Laboratorio, Corporacion)] %>%
   unique() %>%
   select(Laboratorio, Corporacion) %>%
-  write.csv("Pendientes/Laboratorios.csv",
-            fileEncoding = "UTF-8",
-            row.names = FALSE)
+  write.csv(
+    carpeta_exportados %>% paste0("Pendientes/Laboratorios.csv"),
+    fileEncoding = "UTF-8",
+    row.names = FALSE
+  )
 
 # Preparar Presentacion CveLab para cruce de ID_Prod
 # Es necesario todas las Presentacion CveLab, por tanto la extracción este paso.
@@ -78,6 +91,7 @@ homologacion_presentacion <-
   productos[, .(`Presentacion CveLab`, Presentacion, `Corporacion Homologado`)] %>%
   unique()
 
+##Traer último laboratorio (Estos productos pueden cambiar de compañía distribuidora. Como estándar se asigna el producto a la distribuidora más reciente)
 eticos_otc <-
   filter(productos, Genero %in% c("Etico", "O.T.C.")) %>%
   arrange(Presentacion, desc(Periodo)) %>%
@@ -99,12 +113,13 @@ productos <-
   mutate(ID_Prod = row_number()) %>%
   mutate(Genero = fifelse(Genero == "G.I.", "G.P.", Genero))
 
-
-# Exportar dimensión de Productos
-select(productos,-`Corporacion Homologado`,-`Presentacion CveLab`) %>%
-  write.csv("Exportados/Productos.csv",
-            fileEncoding = "UTF-8",
-            row.names = FALSE)
+# Exportar dimensión de Productos -----------------------------------------
+select(productos, -`Corporacion Homologado`, -`Presentacion CveLab`) %>%
+  write.csv(
+    carpeta_exportados %>% paste0("Productivo/Productos.csv"),
+    fileEncoding = "UTF-8",
+    row.names = FALSE
+  )
 
 # Asignar ID_Prod a Presentacion CveLab
 homologacion_presentacion <-
@@ -123,6 +138,8 @@ homologacion_presentacion <-
   mutate(ID_Prod = coalesce(ID_Prod.x, ID_Prod.y)) %>%
   select(`Presentacion CveLab`, ID_Prod) %>%
   unique()
+
+# Tabla de hechos ---------------------------------------------------------
 
 # Traer tabla de hechos
 registerDoFuture()
@@ -169,8 +186,8 @@ plan(sequential)
 # Dimensión de Estados
 canales <-
   tabla_hechos[, .(Canal)] %>%
-  unique() %>%
-  mutate(ID_Canal = row_number())
+  unique() #%>%
+  #mutate(ID_Canal = row_number())
 
 estados <-
   tabla_hechos[, .(Estado)] %>%
@@ -178,7 +195,7 @@ estados <-
   mutate(ID_Estado = row_number()) %>%
   merge(estados, by = "Estado")
 
-# Exportar dimensiones
+# Exportar Dimensiones ----------------------------------------------------
 write.csv(canales,
           "Exportados/Canales.csv",
           fileEncoding = "UTF-8",
@@ -197,12 +214,14 @@ resultado <-
   merge(canales, by = "Canal") %>%
   merge(estados[, .(Estado, ID_Estado)], by = "Estado")
 
+#Productos Pendientes
 resultado[is.na(ID_Prod), .(`Presentacion CveLab`)] %>%
   unique() %>%
   write.csv("Pendientes/Productos.csv",
             fileEncoding = "UTF-8",
             row.names = FALSE)
 
+# Exportar Hechos ---------------------------------------------------------
 select(resultado,
        ID_Prod,
        ID_Canal,
